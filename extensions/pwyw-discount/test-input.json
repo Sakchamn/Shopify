@@ -1,0 +1,18 @@
+{
+  "cart": {
+    "lines": [
+      {
+        "id": "gid://shopify/CartLine/1",
+        "quantity": 1,
+        "attribute": {
+          "value": "180"
+        },
+        "cost": {
+          "amountPerQuantity": {
+            "amount": "729.95"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,135 @@
+<div class="pwyw-container" style="padding: 10px 0;">
+  <label for="custom-price" style="display: block; margin-bottom: 8px;"><strong>Name your price ($):</strong></label>
+  <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+    <input type="range" id="custom-price-slider" min="{{ block.settings.min_price | default: 1 }}" max="{{ block.settings.max_price | default: 1000 }}" step="1" value="{{ block.settings.min_price | default: 10 }}" style="flex-grow: 1; cursor: pointer;">
+    <input type="number" id="custom-price" min="{{ block.settings.min_price | default: 1 }}" step="0.01" value="{{ block.settings.min_price | default: 10 }}" style="width: 90px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; text-align: center;">
+  </div>
+  <p id="price-error" style="color: #d92d20; display: none; margin-bottom: 10px; font-size: 14px;">Price cannot be below $<span id="min-price-display">{{ block.settings.min_price | default: 1 }}</span></p>
+  <button type="button" id="add-pwyw-to-cart" style="width: 100%; padding: 12px; background: black; color: white; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; font-size: 16px; transition: opacity 0.2s;">
+    Add to Cart
+  </button>
+</div>
+
+<script>
+  (function() {
+    const slider = document.getElementById('custom-price-slider');
+    const input = document.getElementById('custom-price');
+    const button = document.getElementById('add-pwyw-to-cart');
+    const errorMsg = document.getElementById('price-error');
+    const minPrice = {{ block.settings.min_price | default: 1 | json }};
+
+    function updatePriceState() {
+      const price = parseFloat(input.value);
+      if (isNaN(price) || price < minPrice) {
+        errorMsg.style.display = 'block';
+        button.disabled = true;
+        button.style.opacity = '0.5';
+        button.style.cursor = 'not-allowed';
+      } else {
+        errorMsg.style.display = 'none';
+        button.disabled = false;
+        button.style.opacity = '1';
+        button.style.cursor = 'pointer';
+      }
+    }
+
+    slider.addEventListener('input', function() {
+      input.value = this.value;
+      updatePriceState();
+    });
+
+    input.addEventListener('input', function() {
+      slider.value = this.value;
+      updatePriceState();
+    });
+
+    // Initialize state
+    updatePriceState();
+
+    button.addEventListener('click', function(e) {
+      e.preventDefault();
+      
+      const customPrice = parseFloat(input.value);
+      if (isNaN(customPrice) || customPrice < minPrice) return;
+      
+      // Prevent double submission and freezing by disabling
+      button.disabled = true;
+      const originalText = button.innerText;
+      button.innerText = 'Adding...';
+      button.style.opacity = '0.7';
+      button.style.cursor = 'wait';
+      
+      const variantId = {{ product.selected_or_first_available_variant.id | json }};
+      
+      if (!variantId) {
+        alert('Error: No product variant found.');
+        button.disabled = false;
+        button.innerText = originalText;
+        button.style.opacity = '1';
+        button.style.cursor = 'pointer';
+        return;
+      }
+
+      const rootUrl = (window.Shopify && window.Shopify.routes && window.Shopify.routes.root) ? window.Shopify.routes.root : '/';
+      
+      fetch(rootUrl + 'cart/add.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: [{
+            id: variantId,
+            quantity: 1,
+            properties: {
+              'PWYW_Price': customPrice.toString() 
+            }
+          }]
+        })
+      })
+      .then(async response => {
+        if (!response.ok) {
+          const text = await response.text();
+          let errorMessage = text;
+          try {
+             const json = JSON.parse(text);
+             errorMessage = json.description || json.message || text;
+          } catch(e) {}
+          throw new Error(errorMessage);
+        }
+        return response.json();
+      })
+      .then(() => {
+        window.location.href = rootUrl + 'cart';
+      })
+      .catch(error => {
+        console.error('Error adding to cart:', error);
+        button.disabled = false;
+        button.innerText = originalText;
+        button.style.opacity = '1';
+        button.style.cursor = 'pointer';
+        alert('Error adding to cart: ' + error.message);
+      });
+    });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Pay What You Want",
+  "target": "section",
+  "templates": ["product"],
+  "settings": [
+    {
+      "type": "number",
+      "id": "min_price",
+      "label": "Minimum Price",
+      "default": 1
+    },
+    {
+      "type": "number",
+      "id": "max_price",
+      "label": "Maximum Price (Slider)",
+      "default": 1000
+    }
+  ]
+}
+{% endschema %}

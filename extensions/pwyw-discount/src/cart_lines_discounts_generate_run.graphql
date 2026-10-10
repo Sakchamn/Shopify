@@ -1,0 +1,16 @@
+query RunInput {
+  cart {
+    lines {
+      id
+      quantity
+      attribute(key: "PWYW_Price") {
+        value
+      }
+      cost {
+        amountPerQuantity {
+          amount
+        }
+      }
+    }
+  }
+}
